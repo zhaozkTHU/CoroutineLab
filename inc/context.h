@@ -6,75 +6,75 @@
 #include <type_traits>
 
 enum class Registers : int {
-  RAX = 0,
-  RDI,
-  RSI,
-  RDX,
-  R8,
-  R9,
-  R10,
-  R11,
-  RSP,
-  RBX,
-  RBP,
-  R12,
-  R13,
-  R14,
-  R15,
-  RIP,
-  RegisterCount
+    RAX = 0,
+    RDI,
+    RSI,
+    RDX,
+    R8,
+    R9,
+    R10,
+    R11,
+    RSP,
+    RBX,
+    RBP,
+    R12,
+    R13,
+    R14,
+    R15,
+    RIP,
+    RegisterCount
 };
 
 extern "C" {
-void coroutine_entry();
-void coroutine_switch(uint64_t *save, uint64_t *restore);
+    void coroutine_entry();
+    void coroutine_switch(uint64_t *save, uint64_t *restore);
 }
 
 struct basic_context {
-  uint64_t *stack;
-  uint64_t stack_size;
-  uint64_t caller_registers[(int)Registers::RegisterCount];
-  uint64_t callee_registers[(int)Registers::RegisterCount];
-  bool finished;
-  bool ready;
-  std::function<bool()> ready_func;
+    uint64_t *stack;
+    uint64_t stack_size;
+    uint64_t caller_registers[(int)Registers::RegisterCount];
+    uint64_t callee_registers[(int)Registers::RegisterCount];
+    bool finished;
+    bool ready;
+    std::function<bool()> ready_func;
 
-  basic_context(uint64_t stack_size)
-      : finished(false), ready(true), stack_size(stack_size) {
-    stack = new uint64_t[stack_size];
+    basic_context(uint64_t stack_size)
+        : finished(false), ready(true), stack_size(stack_size) {
+        stack = new uint64_t[stack_size];
 
-    // TODO: Task 1
-    // 在实验报告中分析以下代码
-    // 对齐到 16 字节边界
-    uint64_t rsp = (uint64_t)&stack[stack_size - 1];
-    rsp = rsp - (rsp & 0xF);
+        // TODO: Task 1
+        // 在实验报告中分析以下代码
+        // 对齐到 16 字节边界
+        uint64_t rsp = (uint64_t)&stack[stack_size - 1];
+        rsp = rsp - (rsp & 0xF);
 
-    void coroutine_main(struct basic_context * context);
+        void coroutine_main(struct basic_context *context);
 
-    callee_registers[(int)Registers::RSP] = rsp;
-    // 协程入口是 coroutine_entry
-    callee_registers[(int)Registers::RIP] = (uint64_t)coroutine_entry;
-    // 设置 r12 寄存器为 coroutine_main 的地址
-    callee_registers[(int)Registers::R12] = (uint64_t)coroutine_main;
-    // 设置 r13 寄存器，用于 coroutine_main 的参数
-    callee_registers[(int)Registers::R13] = (uint64_t)this;
-  }
+        callee_registers[(int)Registers::RSP] = rsp;
+        // 协程入口是 coroutine_entry
+        callee_registers[(int)Registers::RIP] = (uint64_t)coroutine_entry;
+        // 设置 r12 寄存器为 coroutine_main 的地址
+        callee_registers[(int)Registers::R12] = (uint64_t)coroutine_main;
+        // 设置 r13 寄存器，用于 coroutine_main 的参数
+        callee_registers[(int)Registers::R13] = (uint64_t)this;
+    }
 
-  ~basic_context() { delete[] stack; }
+    ~basic_context() { delete[] stack; }
 
-  virtual void run() = 0;
-  virtual void resume() = 0;
+    virtual void run() = 0;
+    virtual void resume() = 0;
 };
 
 // TODO: Task 1
 // 在实验报告中分析以下代码
 void coroutine_main(struct basic_context *context) {
-  context->run();
-  context->finished = true;
-  coroutine_switch(context->callee_registers, context->caller_registers);
+    context->run();
+    context->finished = true;
+    coroutine_switch(context->callee_registers, context->caller_registers);
 
-  // unreachable
-  assert(false);
+    // unreachable
+    assert(false);
 }
 
 extern __thread basic_context *g_current_context;
@@ -116,33 +116,33 @@ extern __thread basic_context *g_current_context;
  */
 template <typename F, typename... Args>
 struct coroutine_context : public basic_context {
-  F f;
-  std::tuple<Args...> args;
+    F f;
+    std::tuple<Args...> args;
 
-  // construct a stacked coroutine, with stack size 16 KB
-  coroutine_context(F f, Args... args)
-      : f(f), args(std::tuple<Args...>(args...)),
+    // construct a stacked coroutine, with stack size 16 KB
+    coroutine_context(F f, Args... args)
+        : f(f), args(std::tuple<Args...>(args...)),
         basic_context(16 * 1024 / sizeof(uint64_t)) {
-    static_assert(sizeof...(args) <= 7);
-  }
+        static_assert(sizeof...(args) <= 7);
+    }
 
-  // construct a stacked coroutine, with stack_size (in KB)
-  coroutine_context(uint64_t stack_size, F f, Args... args)
-      : f(f), args(std::tuple<Args...>(args...)),
+    // construct a stacked coroutine, with stack_size (in KB)
+    coroutine_context(uint64_t stack_size, F f, Args... args)
+        : f(f), args(std::tuple<Args...>(args...)),
         basic_context(stack_size * 1024 / sizeof(uint64_t)) {
-    static_assert(sizeof...(args) <= 7);
-  }
+        static_assert(sizeof...(args) <= 7);
+    }
 
-  /**
-   * @brief 恢复协程函数运行。
-   * TODO: Task 1
-   * 你需要保存 callee-saved 寄存器，并且设置协程函数栈帧，然后将 rip 恢复到协程
-   * yield 之后所需要执行的指令地址。
-   */
-  virtual void resume() {
-    // 调用 coroutine_switch
-    // 在汇编中保存 callee-saved 寄存器，设置协程函数栈帧，然后将 rip 恢复到协程 yield 之后所需要执行的指令地址。
-  }
+    /**
+     * @brief 恢复协程函数运行。
+     * TODO: Task 1
+     * 你需要保存 callee-saved 寄存器，并且设置协程函数栈帧，然后将 rip 恢复到协程
+     * yield 之后所需要执行的指令地址。
+     */
+    virtual void resume() {
+        // 调用 coroutine_switch
+        // 在汇编中保存 callee-saved 寄存器，设置协程函数栈帧，然后将 rip 恢复到协程 yield 之后所需要执行的指令地址。
+    }
 
-  virtual void run() { CALL(f, args); }
+    virtual void run() { CALL(f, args); }
 };
