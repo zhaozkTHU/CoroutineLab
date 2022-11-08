@@ -59,6 +59,18 @@ struct coroutine_pool {
     void serial_execute_all() {
         is_parallel = false;
         g_pool = this;
+        this->context_id = 0;
+
+        int all_finished = 0;
+        for (int &i = g_pool->context_id; i < coroutines.size() && all_finished != coroutines.size(); i == coroutines.size() - 1 ? i = 0 : i++) {
+            if (coroutines[i]->finished) continue;
+            if (!coroutines[i]->ready) {
+                if (!coroutines[i]->ready_func()) continue;
+                else coroutines[i]->ready = true;
+            }
+            coroutines[i]->resume();
+            if (coroutines[i]->finished) all_finished++;
+        }
 
         for (auto context : coroutines) {
             delete context;
