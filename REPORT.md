@@ -107,7 +107,7 @@ void coroutine_main(struct basic_context *context) {
 
 参数`struct basic_context *context`即为初始化的`this`指针，代表着将要执行的协程。`run()`将会真正执行该协程，栈帧将会存储在`rsp`所指向的在结构体内人为开辟的`stack`，寄存器将会使用cpu真正的寄存器。若没有`yield`则函数直接完成，设置为`finished = true`，并调用`switch`从该协程的环境切换到调度器的环境。该协程执行完成，到此结束。
 
-![image-20221109173149531](./report/image-20221109173149531.png)
+![](report/image-20221109173149531.png)
 
 ### 协程中途主动切出
 
@@ -179,3 +179,62 @@ for (int &i = g_pool->context_id; i < coroutines.size() && all_finished != corou
 ```
 
 同样调度器的轮询规则也需要更改，当函数未`ready`，需要调用更新函数检查函数是否休眠完成，如果时间已到，则更新状态。
+
+## Task 3
+
+```c++
+__builtin_prefetch(table + probe);
+yield();
+```
+
+首先对将要进行二分查找的哪一项进行`__builtin_prefetch`预取，在预取时，可以切出协程，并执行其他的二分查找，能够提高部分效率。
+
+### 提升效果
+
+```
+# ./bin/binary_search
+Size: 4294967296
+Loops: 1000000
+Batch size: 16
+Initialization done
+naive: 1801.25 ns per search, 56.29 ns per access
+coroutine batched: 1768.68 ns per search, 55.27 ns per access
+```
+
+```
+# ./bin/binary_search -l 30
+Size: 1073741824
+Loops: 1000000
+Batch size: 16
+Initialization done
+naive: 1308.79 ns per search, 43.63 ns per access
+coroutine batched: 1203.45 ns per search, 40.12 ns per access
+```
+
+```
+# ./bin/binary_search -m 10000000
+Size: 4294967296
+Loops: 10000000
+Batch size: 16
+Initialization done
+naive: 1095.97 ns per search, 34.25 ns per access
+coroutine batched: 1066.59 ns per search, 33.33 ns per access
+```
+
+```
+# ./bin/binary_search -b 8
+Size: 4294967296
+Loops: 1000000
+Batch size: 8
+Initialization done
+naive: 1503.88 ns per search, 47.00 ns per access
+coroutine batched: 1448.20 ns per search, 45.26 ns per access
+```
+
+## 参考资料
+
+> https://stackoverflow.com/questions/57212012/how-to-load-address-of-function-or-label-into-register
+
+## 总结与感想
+
+本次实验是我第一次真正编写汇编代码，直接命令操作系统。经过本次实验，我也对程序中函数运行的本质有了更加深刻的理解，函数运行的环境为函数的栈即寄存器，只要模拟这两项，就完全可以成功运行一个函数。本次实验也让我感到了学习计算机系统的必要性。在学习之前，我一直认为只要学习高级语言就可以了，经过这次实验，我也认识到了汇编语言能对计算机底层进行操作，往往能完成很多高级语言常规做不到的操作。
