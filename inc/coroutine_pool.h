@@ -62,9 +62,12 @@ struct coroutine_pool {
         this->context_id = 0;
 
         int all_finished = 0;
-        for (int &i = g_pool->context_id; i < coroutines.size() && all_finished != coroutines.size(); i == coroutines.size() - 1 ? i = 0 : i++) {
+        for (int &i = g_pool->context_id;
+            i < coroutines.size() && all_finished != coroutines.size();
+            i == coroutines.size() - 1 ? i = 0 : i++) {
             if (coroutines[i]->finished) continue;
             if (!coroutines[i]->ready) {
+                // if (std::chrono::system_clock::now() < coroutines[i]->ready_time) continue;
                 if (!coroutines[i]->ready_func()) continue;
                 else coroutines[i]->ready = true;
             }

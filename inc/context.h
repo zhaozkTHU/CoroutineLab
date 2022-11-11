@@ -4,6 +4,7 @@
 #include <functional>
 #include <tuple>
 #include <type_traits>
+#include <chrono>
 
 enum class Registers : int {
     RAX = 0,
@@ -38,6 +39,7 @@ struct basic_context {
     bool finished;
     bool ready;
     std::function<bool()> ready_func;
+    // std::chrono::_V2::system_clock::time_point ready_time;
 
     basic_context(uint64_t stack_size)
         : finished(false), ready(true), stack_size(stack_size) {

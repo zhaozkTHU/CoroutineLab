@@ -1,6 +1,6 @@
-# 协程实验报告
+[TOC]
 
-赵泽锴 2021010731 计12
+# 协程实验报告 赵泽锴 2021010731 计12
 
 ## Task 1
 
@@ -179,6 +179,29 @@ for (int &i = g_pool->context_id; i < coroutines.size() && all_finished != corou
 ```
 
 同样调度器的轮询规则也需要更改，当函数未`ready`，需要调用更新函数检查函数是否休眠完成，如果时间已到，则更新状态。
+
+### 额外要求
+
+![](report/20221111165549.jpg)
+
+每次轮询都需要调用函数`ready_func`，可能会消耗时间。可以将结束的时间存入`basic_contest`中，并在`sleep`时进行修改。以后每次轮询时就可以只比较当前时间与结束时间，不会调用函数。
+
+```c++
+// context.h
+struct basic_contest {
+    ...
+    std::chrono::_V2::system_clock::time_point ready_time; // 在成员变量中添加结束时间
+}
+
+// common.h
+context->ready_time = cur + std::chrono::milliseconds(ms); // 修改结束时间
+
+// coroutine_pool.h
+if (!coroutines[i]->ready) {
+    if (std::chrono::system_clock::now() < coroutines[i]->ready_time) continue; // 直接比较当前时间与结束时间即可，不需要调用函数
+    else coroutines[i]->ready = true;
+}
+```
 
 ## Task 3
 
